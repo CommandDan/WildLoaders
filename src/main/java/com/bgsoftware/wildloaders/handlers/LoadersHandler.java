@@ -25,6 +25,7 @@ public final class LoadersHandler implements LoadersManager {
 
     private final Map<Location, ChunkLoader> chunkLoaders = Maps.newConcurrentMap();
     private final Map<ChunkPosition, ChunkLoader> chunkLoadersByChunks = Maps.newConcurrentMap();
+    private final Map<UUID, List<ChunkLoader>> chunkLoadersByPlacerUUID = Maps.newConcurrentMap();
     private final Map<String, LoaderData> loadersData = Maps.newConcurrentMap();
     private final WildLoadersPlugin plugin;
 
@@ -48,6 +49,11 @@ public final class LoadersHandler implements LoadersManager {
     }
 
     @Override
+    public List<ChunkLoader> getChunkLoaders(UUID placer) {
+        return Collections.unmodifiableList(new ArrayList<>(chunkLoadersByPlacerUUID.get(placer)));
+    }
+
+    @Override
     public Optional<LoaderData> getLoaderData(String name) {
         return Optional.ofNullable(loadersData.get(name));
     }
@@ -59,7 +65,12 @@ public final class LoadersHandler implements LoadersManager {
 
     @Override
     public ChunkLoader addChunkLoader(LoaderData loaderData, Player whoPlaced, Location location, long timeLeft) {
-        WChunkLoader chunkLoader = addChunkLoader(loaderData, whoPlaced.getUniqueId(), location, timeLeft);
+        return addChunkLoader(loaderData, whoPlaced, location, timeLeft, false);
+    }
+
+    @Override
+    public ChunkLoader addChunkLoader(LoaderData loaderData, Player whoPlaced, Location location, long timeLeft, boolean startPaused) {
+        WChunkLoader chunkLoader = addChunkLoader(loaderData, whoPlaced.getUniqueId(), location, timeLeft, startPaused);
 
         Query.INSERT_CHUNK_LOADER.insertParameters()
                 .setLocation(location)
@@ -71,12 +82,15 @@ public final class LoadersHandler implements LoadersManager {
         return chunkLoader;
     }
 
-    public WChunkLoader addChunkLoader(LoaderData loaderData, UUID placer, Location location, long timeLeft){
-        WChunkLoader chunkLoader = new WChunkLoader(loaderData, placer, location, timeLeft);
+    public WChunkLoader addChunkLoader(LoaderData loaderData, UUID placer, Location location, long timeLeft, boolean startPaused){
+        WChunkLoader chunkLoader = new WChunkLoader(loaderData, placer, location, timeLeft, startPaused);
         chunkLoaders.put(location, chunkLoader);
         for (Chunk loadedChunk : chunkLoader.getLoadedChunks()) {
             chunkLoadersByChunks.put(ChunkPosition.of(loadedChunk), chunkLoader);
         }
+        List<ChunkLoader> placerChunkLoaders = chunkLoadersByPlacerUUID.getOrDefault(placer, new ArrayList<>());
+        placerChunkLoaders.add(chunkLoader);
+        chunkLoadersByPlacerUUID.put(placer, placerChunkLoaders);
         plugin.getNPCs().createNPC(location);
         return chunkLoader;
     }
@@ -88,6 +102,10 @@ public final class LoadersHandler implements LoadersManager {
         for (Chunk loadedChunk : chunkLoader.getLoadedChunks()) {
             chunkLoadersByChunks.remove(ChunkPosition.of(loadedChunk));
         }
+        UUID placer = chunkLoader.getWhoPlaced().getUniqueId();
+        List<ChunkLoader> placerChunkLoaders = chunkLoadersByPlacerUUID.getOrDefault(placer, new ArrayList<>());
+        placerChunkLoaders.remove(chunkLoader);
+        chunkLoadersByPlacerUUID.put(placer, placerChunkLoaders);
         chunkLoader.getNPC().ifPresent(npc -> plugin.getNPCs().killNPC(npc));
 
         Query.DELETE_CHUNK_LOADER.insertParameters()
@@ -112,5 +130,46 @@ public final class LoadersHandler implements LoadersManager {
         chunkLoaders.values().forEach(chunkLoader -> plugin.getNMSAdapter().removeLoader(chunkLoader, false));
         chunkLoaders.clear();
         chunkLoadersByChunks.clear();
+        chunkLoadersByPlacerUUID.clear();
     }
+
+    @Override
+    public void pauseChunkLoader(ChunkLoader chunkLoader) {
+        plugin.getNMSAdapter().pauseLoader(chunkLoader);
+    }
+
+    @Override
+    public void unpauseChunkLoader(ChunkLoader chunkLoader) {
+        plugin.getNMSAdapter().unpauseLoader(chunkLoader);
+    }
+
+    @Override
+    public void pauseAllChunkLoaders() {
+        chunkLoaders.values().forEach(chunkLoader -> plugin.getNMSAdapter().pauseLoader(chunkLoader));
+    }
+
+    @Override
+    public void unpauseAllChunkLoaders() {
+        chunkLoaders.values().forEach(chunkLoader -> plugin.getNMSAdapter().unpauseLoader(chunkLoader));
+    }
+
+    @Override
+    public void pauseChunkLoaders(UUID placer) {
+        if (!chunkLoadersByPlacerUUID.containsKey(placer)) return;
+        List<ChunkLoader> placersChunkLoaders = chunkLoadersByPlacerUUID.get(placer);
+        for (ChunkLoader chunkLoader : placersChunkLoaders) {
+            plugin.getNMSAdapter().pauseLoader(chunkLoader);
+        }
+    }
+
+    @Override
+    public void unpauseChunkLoaders(UUID placer) {
+        if (!chunkLoadersByPlacerUUID.containsKey(placer)) return;
+        List<ChunkLoader> placersChunkLoaders = chunkLoadersByPlacerUUID.get(placer);
+        for (ChunkLoader chunkLoader : placersChunkLoaders) {
+            plugin.getNMSAdapter().unpauseLoader(chunkLoader);
+        }
+    }
+
+
 }

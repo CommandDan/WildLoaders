@@ -24,7 +24,13 @@ public interface NMSAdapter {
 
     ITileEntityChunkLoader createLoader(ChunkLoader chunkLoader);
 
+    ITileEntityChunkLoader createLoader(ChunkLoader chunkLoader, boolean startPaused);
+
     void removeLoader(ChunkLoader chunkLoader, boolean spawnParticle);
+
+    void pauseLoader(ChunkLoader chunkLoader);
+
+    void unpauseLoader(ChunkLoader chunkLoader);
 
     void updateSpawner(Location location, boolean reset);
 

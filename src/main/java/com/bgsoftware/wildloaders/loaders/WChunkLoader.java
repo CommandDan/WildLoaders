@@ -33,13 +33,13 @@ public final class WChunkLoader implements ChunkLoader {
     private boolean active = true;
     private long timeLeft;
 
-    public WChunkLoader(LoaderData loaderData, UUID whoPlaced, Location location, long timeLeft) {
+    public WChunkLoader(LoaderData loaderData, UUID whoPlaced, Location location, long timeLeft, boolean startPaused) {
         this.loaderName = loaderData.getName();
         this.whoPlaced = whoPlaced;
         this.location = location.clone();
         this.loadedChunks = calculateChunks(loaderData, whoPlaced, this.location);
         this.timeLeft = timeLeft;
-        this.tileEntityChunkLoader = plugin.getNMSAdapter().createLoader(this);
+        this.tileEntityChunkLoader = plugin.getNMSAdapter().createLoader(this, startPaused);
     }
 
     @Override

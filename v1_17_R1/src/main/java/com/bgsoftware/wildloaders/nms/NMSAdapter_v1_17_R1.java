@@ -127,12 +127,17 @@ public final class NMSAdapter_v1_17_R1 implements NMSAdapter {
 
     @Override
     public ITileEntityChunkLoader createLoader(ChunkLoader chunkLoader) {
+        return createLoader(chunkLoader, false);
+    }
+
+    @Override
+    public ITileEntityChunkLoader createLoader(ChunkLoader chunkLoader, boolean startPaused) {
         Location loaderLoc = chunkLoader.getLocation();
         assert loaderLoc.getWorld() != null;
         WorldServer world = ((CraftWorld) loaderLoc.getWorld()).getHandle();
         BlockPosition blockPosition = new BlockPosition(loaderLoc.getX(), loaderLoc.getY(), loaderLoc.getZ());
 
-        TileEntityChunkLoader tileEntityChunkLoader = new TileEntityChunkLoader(chunkLoader, world, blockPosition);
+        TileEntityChunkLoader tileEntityChunkLoader = new TileEntityChunkLoader(chunkLoader, world, blockPosition, startPaused);
         world.a(tileEntityChunkLoader.ticker);
 
         for(org.bukkit.Chunk bukkitChunk : chunkLoader.getLoadedChunks()) {
@@ -173,6 +178,51 @@ public final class NMSAdapter_v1_17_R1 implements NMSAdapter {
     }
 
     @Override
+    public void pauseLoader(ChunkLoader chunkLoader) {
+        Location loaderLoc = chunkLoader.getLocation();
+        assert loaderLoc.getWorld() != null;
+        WorldServer world = ((CraftWorld) loaderLoc.getWorld()).getHandle();
+        BlockPosition blockPosition = new BlockPosition(loaderLoc.getX(), loaderLoc.getY(), loaderLoc.getZ());
+
+        long tileEntityLong = ChunkCoordIntPair.pair(blockPosition.getX() >> 4, blockPosition.getZ() >> 4);
+        TileEntityChunkLoader tileEntityChunkLoader = TileEntityChunkLoader.tileEntityChunkLoaderMap.get(tileEntityLong);
+        if(tileEntityChunkLoader != null) {
+            tileEntityChunkLoader.paused = true;
+        }
+
+        for(org.bukkit.Chunk bukkitChunk : chunkLoader.getLoadedChunks()) {
+            Chunk chunk = ((CraftChunk) bukkitChunk).getHandle();
+            chunk.l.values().stream().filter(tileEntity -> tileEntity instanceof TileEntityMobSpawner)
+                    .forEach(tileEntity -> ((TileEntityMobSpawner) tileEntity).getSpawner().n = 16);
+
+            world.setForceLoaded(chunk.getPos().b, chunk.getPos().c, false);
+        }
+    }
+
+    @Override
+    public void unpauseLoader(ChunkLoader chunkLoader) {
+        Location loaderLoc = chunkLoader.getLocation();
+        assert loaderLoc.getWorld() != null;
+        WorldServer world = ((CraftWorld) loaderLoc.getWorld()).getHandle();
+        BlockPosition blockPosition = new BlockPosition(loaderLoc.getX(), loaderLoc.getY(), loaderLoc.getZ());
+
+        long tileEntityLong = ChunkCoordIntPair.pair(blockPosition.getX() >> 4, blockPosition.getZ() >> 4);
+        TileEntityChunkLoader tileEntityChunkLoader = TileEntityChunkLoader.tileEntityChunkLoaderMap.get(tileEntityLong);
+        if(tileEntityChunkLoader != null) {
+            tileEntityChunkLoader.paused = false;
+        }
+
+        for(org.bukkit.Chunk bukkitChunk : chunkLoader.getLoadedChunks()) {
+            Chunk chunk = ((CraftChunk) bukkitChunk).getHandle();
+            chunk.l.values().stream().filter(tileEntity -> tileEntity instanceof TileEntityMobSpawner)
+                    .forEach(tileEntity -> ((TileEntityMobSpawner) tileEntity).getSpawner().n = -1);
+
+            world.setForceLoaded(chunk.getPos().b, chunk.getPos().c, true);
+        }
+    }
+
+
+    @Override
     public void updateSpawner(Location location, boolean reset) {
         assert location.getWorld() != null;
         World world = ((CraftWorld) location.getWorld()).getHandle();
@@ -199,12 +249,15 @@ public final class NMSAdapter_v1_17_R1 implements NMSAdapter {
         private short currentTick = 20;
         private short daysAmount, hoursAmount, minutesAmount, secondsAmount;
         private boolean removed = false;
+        private boolean paused = false;
 
-        TileEntityChunkLoader(ChunkLoader chunkLoader, World world, BlockPosition blockPosition){
+        TileEntityChunkLoader(ChunkLoader chunkLoader, World world, BlockPosition blockPosition, boolean startPaused){
             super(TileEntityTypes.v, blockPosition, world.getType(blockPosition));
 
             this.chunkLoader = (WChunkLoader) chunkLoader;
             this.ticker = new TileEntityChunkLoaderTicker(this);
+
+            paused = startPaused;
 
             setWorld(world);
 
@@ -241,7 +294,7 @@ public final class NMSAdapter_v1_17_R1 implements NMSAdapter {
         }
 
         public void tick() {
-            if(removed || ++currentTick <= 20)
+            if(removed || paused || ++currentTick <= 20)
                 return;
 
             currentTick = 0;

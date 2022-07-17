@@ -7,6 +7,9 @@ import org.bukkit.ChatColor;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+
+import java.util.UUID;
 
 @SuppressWarnings("unused")
 public final class PlayersListener implements Listener {
@@ -32,6 +35,13 @@ public final class PlayersListener implements Listener {
             Executor.sync(() -> e.getPlayer().sendMessage(ChatColor.GREEN + "" + ChatColor.BOLD + "WildLoaders" +
                     ChatColor.GRAY + " A new version is available (v" + Updater.getLatestVersion() + ")!"), 20L);
         }
+
+        Executor.sync(() -> plugin.getLoaders().unpauseChunkLoaders(e.getPlayer().getUniqueId()));
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent e){
+        Executor.sync(() -> plugin.getLoaders().pauseChunkLoaders(e.getPlayer().getUniqueId()));
     }
 
 }

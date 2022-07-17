@@ -63,7 +63,7 @@ public final class DataHandler {
                     continue;
                 }
 
-                plugin.getLoaders().addChunkLoader(loaderData.get(), placer, location, timeLeft);
+                plugin.getLoaders().addChunkLoader(loaderData.get(), placer, location, timeLeft, true);
             }
         });
     }

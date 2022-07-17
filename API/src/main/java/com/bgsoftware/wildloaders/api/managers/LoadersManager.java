@@ -9,6 +9,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface LoadersManager {
 
@@ -30,6 +31,11 @@ public interface LoadersManager {
     List<ChunkLoader> getChunkLoaders();
 
     /**
+     * Get all the chunk loaders on the server placed by player UUID.
+     */
+    List<ChunkLoader> getChunkLoaders(UUID placer);
+
+    /**
      * Get chunk-loader data by it's name.
      * @param name The name of the data.
      */
@@ -49,6 +55,8 @@ public interface LoadersManager {
      * @return The new chunk loader object.
      */
     ChunkLoader addChunkLoader(LoaderData loaderData, Player whoPlaced, Location location, long timeLeft);
+
+    ChunkLoader addChunkLoader(LoaderData loaderData, Player whoPlaced, Location location, long timeLeft, boolean startPaused);
 
     /**
      * Remove a chunk loader from the database.
@@ -73,5 +81,17 @@ public interface LoadersManager {
      * Remove all chunk loaders from cache.
      */
     void removeChunkLoaders();
+
+    void pauseChunkLoader(ChunkLoader chunkLoader);
+
+    void unpauseChunkLoader(ChunkLoader chunkLoader);
+
+    void pauseAllChunkLoaders();
+
+    void unpauseAllChunkLoaders();
+
+    void pauseChunkLoaders(UUID placer);
+
+    void unpauseChunkLoaders(UUID placer);
 
 }
